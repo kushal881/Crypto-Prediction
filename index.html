@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoSense ML - Smart Cryptocurrency Recommendations</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
+</head>
+<body class="light-mode">
+    <div class="theme-toggle">
+        <input type="checkbox" id="theme-switch" class="theme-switch">
+        <label for="theme-switch" class="theme-switch-label">
+            <i class="fas fa-moon"></i>
+            <i class="fas fa-sun"></i>
+            <div class="ball"></div>
+        </label>
+    </div>
+
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon"><i class="fas fa-chart-line"></i></span>
+                <h1>CryptoSense<span>ML</span></h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#dashboard" class="active">Dashboard</a></li>
+                    <li><a href="#recommendations">Recommendations</a></li>
+                    <li><a href="#analysis">Analysis</a></li>
+                    <li><a href="#predict">Predict</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>Smart Crypto Recommendations</h1>
+                    <p>Powered by advanced machine learning algorithms to help you make informed investment decisions</p>
+                    <button id="getStartedBtn" class="btn-primary">Get Started</button>
+                </div>
+                <div class="hero-image">
+                    <img src="/api/placeholder/500/350" alt="Cryptocurrency visualization">
+                </div>
+            </div>
+        </section>
+
+        <section id="dashboard" class="dashboard">
+            <div class="container">
+                <h2>Market Overview</h2>
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-bitcoin-sign"></i></div>
+                        <div class="stat-content">
+                            <h3>Bitcoin</h3>
+                            <p class="stat-value" id="btcPrice">Loading...</p>
+                            <p class="stat-change positive" id="btcChange">Loading...</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fab fa-ethereum"></i></div>
+                        <div class="stat-content">
+                            <h3>Ethereum</h3>
+                            <p class="stat-value" id="ethPrice">Loading...</p>
+                            <p class="stat-change positive" id="ethChange">Loading...</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-chart-pie"></i></div>
+                        <div class="stat-content">
+                            <h3>Market Cap</h3>
+                            <p class="stat-value" id="marketCap">Loading...</p>
+                            <p class="stat-change" id="marketCapChange">Loading...</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-globe"></i></div>
+                        <div class="stat-content">
+                            <h3>24h Volume</h3>
+                            <p class="stat-value" id="volume">Loading...</p>
+                            <p class="stat-change" id="volumeChange">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3>Price Trends</h3>
+                        <div class="chart-controls">
+                            <select id="timeframeSelect">
+                                <option value="1d">1 Day</option>
+                                <option value="7d" selected>7 Days</option>
+                                <option value="30d">30 Days</option>
+                                <option value="90d">90 Days</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart" id="priceChart">
+                        <img src="/api/placeholder/800/400" alt="Price chart" class="placeholder-chart">
+                        <div class="chart-loading">Loading chart data...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="recommendations" class="recommendations">
+            <div class="container">
+                <h2>ML-Powered Recommendations</h2>
+                <p class="section-desc">Our machine learning algorithms analyze market trends, sentiment, and historical data to provide personalized recommendations.</p>
+                
+                <div class="filter-bar">
+                    <div class="filter">
+                        <label for="riskTolerance">Risk Tolerance:</label>
+                        <select id="riskTolerance">
+                            <option value="low">Conservative</option>
+                            <option value="medium" selected>Moderate</option>
+                            <option value="high">Aggressive</option>
+                        </select>
+                    </div>
+                    <div class="filter">
+                        <label for="timeHorizon">Time Horizon:</label>
+                        <select id="timeHorizon">
+                            <option value="short">Short Term</option>
+                            <option value="medium" selected>Medium Term</option>
+                            <option value="long">Long Term</option>
+                        </select>
+                    </div>
+                    <button id="generateRecommendations" class="btn-secondary">Generate Recommendations</button>
+                </div>
+                
+                <div class="recommendations-container" id="recommendationsContainer">
+                    <div class="recommendation-loading">
+                        <div class="loading-spinner"></div>
+                        <p>Analyzing market data and generating recommendations...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="analysis" class="analysis">
+            <div class="container">
+                <h2>Advanced Analysis</h2>
+                <div class="analysis-cards">
+                    <div class="analysis-card">
+                        <h3>Price Correlation</h3>
+                        <div class="analysis-chart" id="correlationChart">
+                            <img src="/api/placeholder/400/250" alt="Correlation heatmap" class="placeholder-chart">
+                        </div>
+                        <p>Visualize how different cryptocurrencies move in relation to each other.</p>
+                    </div>
+                    <div class="analysis-card">
+                        <h3>Volatility Analysis</h3>
+                        <div class="analysis-chart" id="volatilityChart">
+                            <img src="/api/placeholder/400/250" alt="Volatility chart" class="placeholder-chart">
+                        </div>
+                        <p>Compare the price volatility of top cryptocurrencies.</p>
+                    </div>
+                    <div class="analysis-card">
+                        <h3>Market Sentiment</h3>
+                        <div class="analysis-chart" id="sentimentChart">
+                            <img src="/api/placeholder/400/250" alt="Sentiment analysis" class="placeholder-chart">
+                        </div>
+                        <p>Track market sentiment based on social media and news analysis.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="predict" class="predict">
+            <div class="container">
+                <h2>Predict Future Prices</h2>
+                <p class="section-desc">Use our machine learning models to predict cryptocurrency prices based on historical data.</p>
+                
+                <div class="predict-form">
+                    <div class="form-group">
+                        <label for="cryptoSelect">Select Cryptocurrency:</label>
+                        <select id="cryptoSelect">
+                            <option value="BTC">Bitcoin (BTC)</option>
+                            <option value="ETH">Ethereum (ETH)</option>
+                            <option value="BNB">Binance Coin (BNB)</option>
+                            <option value="XRP">Ripple (XRP)</option>
+                            <option value="ADA">Cardano (ADA)</option>
+                            <option value="SOL">Solana (SOL)</option>
+                            <option value="DOT">Polkadot (DOT)</option>
+                            <option value="DOGE">Dogecoin (DOGE)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="daysAhead">Prediction Timeframe:</label>
+                        <select id="daysAhead">
+                            <option value="7">7 Days</option>
+                            <option value="14">14 Days</option>
+                            <option value="30">30 Days</option>
+                            <option value="90">90 Days</option>
+                        </select>
+                    </div>
+                    <button id="predictBtn" class="btn-primary">Generate Prediction</button>
+                </div>
+                
+                <div class="prediction-result" id="predictionResult">
+                    <div class="prediction-chart">
+                        <img src="/api/placeholder/800/400" alt="Price prediction chart" class="placeholder-chart">
+                    </div>
+                    <div class="prediction-metrics">
+                        <div class="metric">
+                            <h4>Predicted Price (7 days)</h4>
+                            <p id="predictedPrice">Select a cryptocurrency and generate prediction</p>
+                        </div>
+                        <div class="metric">
+                            <h4>Confidence Level</h4>
+                            <p id="confidenceLevel">-</p>
+                        </div>
+                        <div class="metric">
+                            <h4>Potential Upside</h4>
+                            <p id="potentialUpside">-</p>
+                        </div>
+                        <div class="metric">
+                            <h4>Risk Assessment</h4>
+                            <p id="riskAssessment">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <span class="logo-icon"><i class="fas fa-chart-line"></i></span>
+                    <h2>CryptoSense<span>ML</span></h2>
+                    <p>Intelligent cryptocurrency analysis and recommendations powered by machine learning.</p>
+                </div>
+                <div class="footer-links">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="#dashboard">Dashboard</a></li>
+                        <li><a href="#recommendations">Recommendations</a></li>
+                        <li><a href="#analysis">Analysis</a></li>
+                        <li><a href="#predict">Predict</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h3>Resources</h3>
+                    <ul>
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">API</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Privacy Policy</a></li>
+                    </ul>
+                </div>
+                <div class="footer-newsletter">
+                    <h3>Stay Updated</h3>
+                    <p>Subscribe to our newsletter for the latest crypto insights.</p>
+                    <form class="newsletter-form">
+                        <input type="email" placeholder="Your email address">
+                        <button type="submit" class="btn-secondary">Subscribe</button>
+                    </form>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 CryptoSenseML. All rights reserved.</p>
+                <div class="social-links">
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-discord"></i></a>
+                    <a href="#"><i class="fab fa-github"></i></a>
+                    <a href="#"><i class="fab fa-linkedin"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
