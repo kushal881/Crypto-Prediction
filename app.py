@@ -1,302 +1,523 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
-import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import yfinance as yf
 from datetime import datetime, timedelta
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.svm import SVR
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-import requests
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import json
-import io
-import base64
-from scipy import stats
+import os
+import joblib
+import warnings
+warnings.filterwarnings('ignore')
 
-app = Flask(__name__, static_folder='static')
+# Initialize Flask application
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
-# Create necessary directories if they don't exist
-os.makedirs('static/images', exist_ok=True)
-os.makedirs('static/data', exist_ok=True)
+# Dictionary to store trained models
+trained_models = {}
+scalers = {}
 
-# Sample cryptocurrency data
-# In a production environment, this would come from an API or database
-CRYPTO_SYMBOLS = ['BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'SOL', 'DOT', 'DOGE']
-CRYPTO_NAMES = {
-    'BTC': 'Bitcoin',
-    'ETH': 'Ethereum',
-    'BNB': 'Binance Coin',
-    'XRP': 'Ripple',
-    'ADA': 'Cardano',
-    'SOL': 'Solana',
-    'DOT': 'Polkadot',
-    'DOGE': 'Dogecoin'
-}
+# Supported cryptocurrencies (matching the JS frontend)
+SUPPORTED_CRYPTOS = ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'DOT', 'DOGE', 'AVAX']
 
-# Serve static files
-@app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
-
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory('.', path)
-
-@app.route('/api/market-data', methods=['GET'])
-def get_market_data():
+def fetch_crypto_data(symbol, period='1y'):
     """
-    Get current market data for cryptocurrencies.
-    In a real application, this would fetch data from an API.
+    Fetch historical cryptocurrency data from Yahoo Finance
     """
-    # Simulate market data
-    market_data = {
-        'btc': {
-            'price': '$63,245.78',
-            'change': '+2.34%'
+    ticker = f"{symbol}-USD"
+    data = yf.download(ticker, period=period)
+    return data
+
+def preprocess_data(data, sequence_length=60):
+    """
+    Preprocess the data for LSTM model
+    """
+    # Select only the Close price
+    df = data[['Close']].copy()
+    
+    # Feature engineering
+    df['MA7'] = df['Close'].rolling(window=7).mean()
+    df['MA30'] = df['Close'].rolling(window=30).mean()
+    df['Daily_Return'] = df['Close'].pct_change()
+    df['Volatility'] = df['Daily_Return'].rolling(window=7).std()
+    
+    # Drop NA values
+    df = df.dropna()
+    
+    # Scale the data
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_data = scaler.fit_transform(df)
+    
+    # Create sequences
+    X, y = [], []
+    for i in range(len(scaled_data) - sequence_length):
+        X.append(scaled_data[i:i + sequence_length])
+        y.append(scaled_data[i + sequence_length, 0])  # Only predict the Close price
+    
+    X, y = np.array(X), np.array(y)
+    
+    return X, y, scaler, df
+
+def build_lstm_model(input_shape):
+    """
+    Build an LSTM model for time series prediction
+    """
+    model = Sequential()
+    model.add(LSTM(units=50, return_sequences=True, input_shape=input_shape))
+    model.add(Dropout(0.2))
+    model.add(LSTM(units=50, return_sequences=False))
+    model.add(Dropout(0.2))
+    model.add(Dense(units=25))
+    model.add(Dense(units=1))
+    
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    return model
+
+def train_model(symbol):
+    """
+    Train an LSTM model for a specific cryptocurrency
+    """
+    print(f"Training model for {symbol}...")
+    
+    # Fetch data
+    data = fetch_crypto_data(symbol)
+    
+    # Preprocess data
+    X, y, scaler, df = preprocess_data(data)
+    
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Build and train model
+    model = build_lstm_model((X_train.shape[1], X_train.shape[2]))
+    model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.1, verbose=0)
+    
+    # Evaluate model
+    y_pred = model.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)
+    mae = mean_absolute_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    
+    print(f"Model for {symbol} trained. RMSE: {rmse:.4f}, MAE: {mae:.4f}, R²: {r2:.4f}")
+    
+    # Store model and scaler
+    trained_models[symbol] = model
+    scalers[symbol] = scaler
+    
+    # Return model metrics
+    return {
+        'rmse': rmse,
+        'mae': mae,
+        'r2': r2
+    }
+
+def generate_prediction(symbol, timeframe_days):
+    """
+    Generate price predictions for the specified cryptocurrency and timeframe
+    """
+    # Check if we have a trained model, if not, train one
+    if symbol not in trained_models:
+        train_model(symbol)
+    
+    # Get the model and scaler
+    model = trained_models[symbol]
+    scaler = scalers[symbol]
+    
+    # Fetch recent data
+    data = fetch_crypto_data(symbol, period='60d')
+    
+    # Preprocess data (without splitting)
+    X, _, _, df = preprocess_data(data)
+    
+    # Use the last sequence for prediction
+    last_sequence = X[-1:]
+    
+    # Current price
+    current_price = df['Close'].iloc[-1]
+    
+    # Make predictions for future days
+    predictions = []
+    prediction_upper = []
+    prediction_lower = []
+    
+    # Start with the last known sequence
+    curr_seq = last_sequence[0]
+    
+    # Generate predictions for each day in the timeframe
+    for i in range(timeframe_days):
+        # Predict next day
+        pred = model.predict(np.array([curr_seq]), verbose=0)[0][0]
+        
+        # Calculate upper and lower bounds (uncertainty increases with time)
+        uncertainty = 0.01 + (i / timeframe_days * 0.04)
+        upper_bound = pred * (1 + uncertainty)
+        lower_bound = pred * (1 - uncertainty)
+        
+        # Store predictions with bounds
+        predictions.append(pred)
+        prediction_upper.append(upper_bound)
+        prediction_lower.append(lower_bound)
+        
+        # Update sequence for next prediction
+        # Create a new row with the same features as the last one, but update the Close price
+        new_row = np.copy(curr_seq[-1])
+        new_row[0] = pred  # Update Close price
+        
+        # Shift sequence and add new prediction
+        curr_seq = np.vstack([curr_seq[1:], new_row])
+    
+    # Inverse transform to get actual prices
+    # We need to create a proper shaped array that matches the training data
+    pred_array = np.zeros((len(predictions), scaler.scale_.shape[0]))
+    upper_array = np.zeros((len(predictions), scaler.scale_.shape[0]))
+    lower_array = np.zeros((len(predictions), scaler.scale_.shape[0]))
+    
+    # Fill in the Close price predictions
+    pred_array[:, 0] = predictions
+    upper_array[:, 0] = prediction_upper
+    lower_array[:, 0] = prediction_lower
+    
+    # Fill in other features with the last known values (simplified)
+    for i in range(1, scaler.scale_.shape[0]):
+        pred_array[:, i] = curr_seq[-1, i]
+        upper_array[:, i] = curr_seq[-1, i]
+        lower_array[:, i] = curr_seq[-1, i]
+    
+    # Inverse transform
+    pred_prices = scaler.inverse_transform(pred_array)[:, 0]
+    upper_prices = scaler.inverse_transform(upper_array)[:, 0]
+    lower_prices = scaler.inverse_transform(lower_array)[:, 0]
+    
+    # Calculate price changes
+    target_price = pred_prices[-1]
+    high_price = upper_prices[-1]
+    low_price = lower_prices[-1]
+    
+    target_change = ((target_price / current_price) - 1) * 100
+    high_change = ((high_price / current_price) - 1) * 100
+    low_change = ((low_price / current_price) - 1) * 100
+    
+    # Generate dates for the prediction
+    today = datetime.now()
+    dates = [(today + timedelta(days=i)).strftime('%b %d') for i in range(1, timeframe_days + 1)]
+    
+    # Get historical data for chart
+    historical_data = fetch_crypto_data(symbol, period='30d')
+    historical_dates = [d.strftime('%b %d') for d in historical_data.index.date]
+    historical_prices = historical_data['Close'].tolist()
+    
+    return {
+        'current_price': current_price,
+        'prediction': {
+            'target': {
+                'price': target_price,
+                'change': target_change
+            },
+            'high': {
+                'price': high_price,
+                'change': high_change
+            },
+            'low': {
+                'price': low_price,
+                'change': low_change
+            }
         },
-        'eth': {
-            'price': '$3,487.12',
-            'change': '+1.76%'
-        },
-        'marketCap': {
-            'value': '$2.34T',
-            'change': '+0.89%'
-        },
-        'volume': {
-            'value': '$142.6B',
-            'change': '-1.24%'
+        'chart_data': {
+            'dates': dates,
+            'predicted_prices': pred_prices.tolist(),
+            'upper_bound': upper_prices.tolist(),
+            'lower_bound': lower_prices.tolist(),
+            'historical_dates': historical_dates,
+            'historical_prices': historical_prices
         }
     }
-    return jsonify(market_data)
 
-@app.route('/api/price-chart', methods=['GET'])
-def get_price_chart():
+def generate_market_data(symbol):
     """
-    Generate price chart for a cryptocurrency over a specified timeframe.
+    Generate additional market data for the specified cryptocurrency
+    """
+    data = fetch_crypto_data(symbol, period='30d')
+    
+    # Calculate market cap and volume (approximate values for demonstration)
+    market_caps = {
+        'BTC': 918.4e9,
+        'ETH': 372.5e9,
+        'BNB': 71.2e9,
+        'SOL': 42.8e9,
+        'ADA': 18.3e9,
+        'DOT': 14.7e9,
+        'DOGE': 16.8e9,
+        'AVAX': 11.2e9
+    }
+    
+    # Calculate 24h change
+    if len(data) >= 2:
+        price_24h_ago = data['Close'].iloc[-2]
+        current_price = data['Close'].iloc[-1]
+        change_24h = ((current_price / price_24h_ago) - 1) * 100
+    else:
+        change_24h = 0
+    
+    # Calculate 7d change
+    if len(data) >= 8:
+        price_7d_ago = data['Close'].iloc[-8]
+        current_price = data['Close'].iloc[-1]
+        change_7d = ((current_price / price_7d_ago) - 1) * 100
+    else:
+        change_7d = 0
+    
+    # Calculate approximate volume
+    volume = data['Volume'].mean() / 1e9  # Convert to billions
+    
+    return {
+        'current_price': data['Close'].iloc[-1],
+        'change_24h': change_24h,
+        'change_7d': change_7d,
+        'market_cap': market_caps.get(symbol, 10e9) / 1e9,  # In billions
+        'volume': volume
+    }
+
+# API endpoints
+@app.route('/api/predict', methods=['POST'])
+def predict():
+    """
+    API endpoint for cryptocurrency price prediction
+    """
+    data = request.json
+    symbol = data.get('symbol', 'BTC')
+    timeframe = int(data.get('timeframe', 30))
+    
+    if symbol not in SUPPORTED_CRYPTOS:
+        return jsonify({
+            'success': False,
+            'error': f'Unsupported cryptocurrency: {symbol}'
+        })
+    
+    try:
+        # Generate prediction
+        prediction_data = generate_prediction(symbol, timeframe)
+        market_data = generate_market_data(symbol)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'prediction': prediction_data,
+                'market': market_data
+            }
+        })
+    except Exception as e:
+        print(f"Error generating prediction: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+@app.route('/api/market-data', methods=['GET'])
+def market_data():
+    """
+    API endpoint for current market data
     """
     symbol = request.args.get('symbol', 'BTC')
-    timeframe = request.args.get('timeframe', '7d')
     
-    # Generate or load historical data
-    df = generate_historical_data(symbol, timeframe)
+    if symbol not in SUPPORTED_CRYPTOS:
+        return jsonify({
+            'success': False,
+            'error': f'Unsupported cryptocurrency: {symbol}'
+        })
     
-    # Create the chart
-    plt.figure(figsize=(10, 6))
-    plt.plot(df.index, df['price'], color='#6c5ce7', linewidth=2)
-    plt.fill_between(df.index, df['price'], color='#6c5ce7', alpha=0.1)
-    plt.title(f'{CRYPTO_NAMES.get(symbol, symbol)} Price Chart ({timeframe})', fontsize=14)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    
-    # Save the chart to a buffer and return as base64 encoded string
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-    plt.close()
-    
-    chart_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    return jsonify({'chart': chart_data})
+    try:
+        data = generate_market_data(symbol)
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
-@app.route('/api/recommendations', methods=['POST'])
-def get_recommendations():
+@app.route('/api/model-status', methods=['GET'])
+def model_status():
     """
-    Generate cryptocurrency recommendations based on machine learning.
+    API endpoint to check which models are trained
     """
-    data = request.get_json()
-    risk_tolerance = data.get('riskTolerance', 'medium')
-    time_horizon = data.get('timeHorizon', 'medium')
-    
-    # Generate recommendations using ML
-    recommendations = generate_recommendations(risk_tolerance, time_horizon)
-    
-    return jsonify({'recommendations': recommendations})
-
-@app.route('/api/prediction', methods=['POST'])
-def get_prediction():
-    """
-    Generate price prediction for a cryptocurrency.
-    """
-    data = request.get_json()
-    symbol = data.get('symbol', 'BTC')
-    days_ahead = int(data.get('daysAhead', 7))
-    
-    # Generate prediction using ML
-    prediction_data = generate_prediction(symbol, days_ahead)
-    
-    return jsonify(prediction_data)
-
-@app.route('/api/analysis/correlation', methods=['GET'])
-def get_correlation_analysis():
-    """
-    Generate correlation heatmap for cryptocurrencies.
-    """
-    # Generate correlation data
-    df = generate_correlation_data()
-    
-    # Create correlation heatmap
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(df.corr(), annot=True, cmap='coolwarm', vmin=-1, vmax=1)
-    plt.title('Cryptocurrency Price Correlation', fontsize=14)
-    plt.tight_layout()
-    
-    # Save the chart to a buffer and return as base64 encoded string
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-    plt.close()
-    
-    chart_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    return jsonify({'chart': chart_data})
-
-@app.route('/api/analysis/volatility', methods=['GET'])
-def get_volatility_analysis():
-    """
-    Generate volatility analysis for cryptocurrencies.
-    """
-    # Generate volatility data
-    volatility_data = generate_volatility_data()
-    
-    # Create volatility chart
-    plt.figure(figsize=(8, 6))
-    plt.bar(volatility_data.keys(), volatility_data.values(), color='#6c5ce7')
-    plt.title('30-Day Volatility by Cryptocurrency', fontsize=14)
-    plt.ylabel('Volatility (Standard Deviation of Daily Returns)')
-    plt.grid(True, alpha=0.3, axis='y')
-    plt.tight_layout()
-    
-    # Save the chart to a buffer and return as base64 encoded string
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-    plt.close()
-    
-    chart_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    return jsonify({'chart': chart_data})
-
-@app.route('/api/analysis/sentiment', methods=['GET'])
-def get_sentiment_analysis():
-    """
-    Generate sentiment analysis for cryptocurrencies.
-    """
-    # Generate sentiment data
-    sentiment_data = generate_sentiment_data()
-    
-    # Create sentiment chart
-    plt.figure(figsize=(8, 6))
-    
-    # Extract data
-    symbols = list(sentiment_data.keys())
-    positive = [data['positive'] for data in sentiment_data.values()]
-    neutral = [data['neutral'] for data in sentiment_data.values()]
-    negative = [data['negative'] for data in sentiment_data.values()]
-    
-    # Create stacked bar chart
-    width = 0.6
-    fig, ax = plt.subplots(figsize=(8, 6))
-    
-    ax.bar(symbols, positive, width, label='Positive', color='#00b894')
-    ax.bar(symbols, neutral, width, bottom=positive, label='Neutral', color='#fdcb6e')
-    ax.bar(symbols, negative, width, bottom=[p+n for p, n in zip(positive, neutral)], label='Negative', color='#ff7675')
-    
-    ax.set_ylabel('Sentiment Distribution')
-    ax.set_title('Market Sentiment Analysis', fontsize=14)
-    ax.legend()
-    
-    plt.tight_layout()
-    
-    # Save the chart to a buffer and return as base64 encoded string
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-    plt.close()
-    
-    chart_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    return jsonify({'chart': chart_data})
-
-@app.route('/api/placeholder/<int:width>/<int:height>', methods=['GET'])
-def get_placeholder_image(width, height):
-    """
-    Generate a placeholder image with specified dimensions.
-    """
-    plt.figure(figsize=(width/100, height/100), dpi=100)
-    plt.plot([0, 1], [0, 1], color='#6c5ce7', linewidth=2)
-    plt.plot([0, 1], [1, 0], color='#6c5ce7', linewidth=2)
-    plt.fill_between([0, 0.5, 1], [0, 0.7, 0], color='#6c5ce7', alpha=0.1)
-    plt.grid(True, alpha=0.2)
-    plt.xticks([])
-    plt.yticks([])
-    plt.tight_layout(pad=0)
-    
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', dpi=100)
-    buffer.seek(0)
-    plt.close()
-    
-    return buffer.getvalue(), 200, {'Content-Type': 'image/png'}
-
-# Helper functions for data generation and ML models
-def generate_historical_data(symbol, timeframe):
-    """
-    Generate historical price data for a cryptocurrency.
-    In a real application, this would fetch data from an API.
-    """
-    # Map timeframe to number of days
-    days_map = {
-        '1d': 1,
-        '7d': 7,
-        '30d': 30,
-        '90d': 90
-    }
-    days = days_map.get(timeframe, 7)
-    
-    # Generate synthetic data
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=days)
-    dates = pd.date_range(start=start_date, end=end_date, freq='H')
-    
-    # Create a dataframe with random price data
-    np.random.seed(hash(symbol) % 1000)  # Use symbol as seed for consistent randomness
-    
-    # Start with a base price depending on the symbol
-    base_prices = {
-        'BTC': 63000,
-        'ETH': 3500,
-        'BNB': 580,
-        'XRP': 0.65,
-        'ADA': 0.52,
-        'SOL': 140,
-        'DOT': 8.2,
-        'DOGE': 0.14
-    }
-    
-    base_price = base_prices.get(symbol, 100)
-    
-    # Generate price with random walk and some trendy patterns
-    trend = np.linspace(0, np.random.uniform(-0.15, 0.15), len(dates))
-    volatility = 0.005 + np.random.uniform(-0.002, 0.002)
-    
-    prices = [base_price]
-    for i in range(1, len(dates)):
-        rnd = np.random.normal(0, volatility)
-        change = rnd + trend[i]
-        new_price = prices[-1] * (1 + change)
-        prices.append(new_price)
-    
-    df = pd.DataFrame({
-        'date': dates,
-        'price': prices
+    return jsonify({
+        'success': True,
+        'data': {
+            'trained_models': list(trained_models.keys()),
+            'supported_cryptos': SUPPORTED_CRYPTOS
+        }
     })
-    
-    df.set_index('date', inplace=True)
-    return df
 
-def generate_recommendations(risk_tolerance, time_horizon):
+# Generate visualization of model training and prediction results
+@app.route('/api/visualization', methods=['GET'])
+def visualization():
     """
-    Generate cryptocurrency recommendations based on machine learning analysis.
+    API endpoint for generating model performance visualizations
     """
-    # Generate historical data for all symbols
-    all_data = {}
-    for symbol in CRYPTO_SYMBOLS
+    symbol = request.args.get('symbol', 'BTC')
+    
+    if symbol not in trained_models:
+        train_model(symbol)
+    
+    # Fetch data for visualization
+    data = fetch_crypto_data(symbol, period='60d')
+    X, y, scaler, df = preprocess_data(data)
+    
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Make predictions
+    model = trained_models[symbol]
+    y_pred = model.predict(X_test)
+    
+    # Inverse transform
+    test_indices = np.arange(len(X_train), len(X_train) + len(X_test))
+    
+    # Create arrays with shape matching original data
+    y_test_array = np.zeros((len(y_test), scaler.scale_.shape[0]))
+    y_test_array[:, 0] = y_test
+    
+    y_pred_array = np.zeros((len(y_pred), scaler.scale_.shape[0]))
+    y_pred_array[:, 0] = y_pred.flatten()
+    
+    # Fill in other features with zeros
+    for i in range(1, scaler.scale_.shape[0]):
+        last_val = df.iloc[-1].values[i] / df.iloc[-1].values[0]  # normalize by Close price
+        y_test_array[:, i] = y_test * last_val
+        y_pred_array[:, i] = y_pred.flatten() * last_val
+    
+    # Inverse transform
+    y_test_real = scaler.inverse_transform(y_test_array)[:, 0]
+    y_pred_real = scaler.inverse_transform(y_pred_array)[:, 0]
+    
+    # Create visualization directory if it doesn't exist
+    os.makedirs('static/visualizations', exist_ok=True)
+    
+    # Plotting
+    plt.figure(figsize=(12, 6))
+    plt.plot(y_test_real, label='Actual Prices')
+    plt.plot(y_pred_real, label='Predicted Prices')
+    plt.title(f'{symbol} Price Prediction Model Performance')
+    plt.xlabel('Test Sample')
+    plt.ylabel('Price (USD)')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    
+    # Save the figure
+    fig_path = f'static/visualizations/{symbol}_prediction.png'
+    plt.savefig(fig_path)
+    plt.close()
+    
+    # Calculate metrics
+    mse = mean_squared_error(y_test_real, y_pred_real)
+    rmse = np.sqrt(mse)
+    mae = mean_absolute_error(y_test_real, y_pred_real)
+    r2 = r2_score(y_test_real, y_pred_real)
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'visualization_path': fig_path,
+            'metrics': {
+                'mse': mse,
+                'rmse': rmse,
+                'mae': mae,
+                'r2': r2
+            }
+        }
+    })
+
+@app.route('/api/feature-importance', methods=['GET'])
+def feature_importance():
+    """
+    API endpoint for generating feature importance visualizations
+    """
+    symbol = request.args.get('symbol', 'BTC')
+    
+    # Fetch data
+    data = fetch_crypto_data(symbol, period='1y')
+    
+    # Create correlation matrix
+    corr_matrix = data.corr()
+    
+    # Create visualization directory if it doesn't exist
+    os.makedirs('static/visualizations', exist_ok=True)
+    
+    # Plot correlation heatmap
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt='.2f')
+    plt.title(f'{symbol} Feature Correlation Matrix')
+    
+    # Save the figure
+    fig_path = f'static/visualizations/{symbol}_correlation.png'
+    plt.savefig(fig_path)
+    plt.close()
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'visualization_path': fig_path,
+            'correlation_matrix': corr_matrix.to_dict()
+        }
+    })
+
+@app.route('/api/train-model', methods=['POST'])
+def train_model_endpoint():
+    """
+    API endpoint for training a model
+    """
+    data = request.json
+    symbol = data.get('symbol', 'BTC')
+    
+    if symbol not in SUPPORTED_CRYPTOS:
+        return jsonify({
+            'success': False,
+            'error': f'Unsupported cryptocurrency: {symbol}'
+        })
+    
+    try:
+        metrics = train_model(symbol)
+        return jsonify({
+            'success': True,
+            'data': {
+                'symbol': symbol,
+                'metrics': metrics
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+# Function to pre-train models for all supported cryptocurrencies
+def pretrain_models():
+    """
+    Pre-train models for all supported cryptocurrencies
+    """
+    for symbol in SUPPORTED_CRYPTOS:
+        try:
+            train_model(symbol)
+        except Exception as e:
+            print(f"Error training model for {symbol}: {str(e)}")
+
+if __name__ == '__main__':
+    # Pre-train models in the background
+    import threading
+    pretraining_thread = threading.Thread(target=pretrain_models)
+    pretraining_thread.start()
+    
+    # Start the Flask app
+    app.run(debug=True, host='0.0.0.0', port=5000)

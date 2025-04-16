@@ -3,277 +3,409 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoSense ML - Smart Cryptocurrency Recommendations</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
+    <title>CryptoOracle | AI-Powered Price Predictions</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="light-mode">
-    <div class="theme-toggle">
-        <input type="checkbox" id="theme-switch" class="theme-switch">
-        <label for="theme-switch" class="theme-switch-label">
-            <i class="fas fa-moon"></i>
-            <i class="fas fa-sun"></i>
-            <div class="ball"></div>
-        </label>
-    </div>
-
-    <header>
-        <div class="container">
+    <div class="app-container">
+        <nav>
             <div class="logo">
-                <span class="logo-icon"><i class="fas fa-chart-line"></i></span>
-                <h1>CryptoSense<span>ML</span></h1>
+                <i class="fas fa-chart-line"></i>
+                <h1>CryptoOracle</h1>
             </div>
-            <nav>
-                <ul>
-                    <li><a href="#dashboard" class="active">Dashboard</a></li>
-                    <li><a href="#recommendations">Recommendations</a></li>
-                    <li><a href="#analysis">Analysis</a></li>
-                    <li><a href="#predict">Predict</a></li>
-                </ul>
-            </nav>
+            <ul class="nav-links">
+                <li><a href="#" class="active">Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                <li><a href="#predictions">Predictions</a></li>
+            </ul>
+            <div class="nav-controls">
+                <button id="theme-toggle" aria-label="Toggle dark mode">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="profile-btn">
+                    <i class="fas fa-user"></i>
+                </button>
+            </div>
+        </nav>
+
+        <header class="hero">
+            <div class="hero-content">
+                <h1>AI-Powered Crypto Price Predictions</h1>
+                <p>Leverage advanced machine learning algorithms to forecast cryptocurrency market movements with precision</p>
+                <div class="search-container">
+                    <select id="crypto-select">
+                        <option value="BTC">Bitcoin (BTC)</option>
+                        <option value="ETH">Ethereum (ETH)</option>
+                        <option value="BNB">Binance Coin (BNB)</option>
+                        <option value="SOL">Solana (SOL)</option>
+                        <option value="ADA">Cardano (ADA)</option>
+                        <option value="DOT">Polkadot (DOT)</option>
+                        <option value="DOGE">Dogecoin (DOGE)</option>
+                        <option value="AVAX">Avalanche (AVAX)</option>
+                    </select>
+                    <select id="timeframe-select">
+                        <option value="7">7 Days</option>
+                        <option value="30">30 Days</option>
+                        <option value="90">90 Days</option>
+                        <option value="365">1 Year</option>
+                    </select>
+                    <button id="predict-btn">Predict</button>
+                </div>
+            </div>
+            <div class="hero-image">
+                <div class="gradient-sphere"></div>
+                <img src="/api/placeholder/500/400" alt="Cryptocurrency trading visualization">
+            </div>
+        </header>
+
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="loading-spinner">
+                <div></div><div></div><div></div><div></div>
+            </div>
+            <p>Processing market data and training ML models...</p>
         </div>
-    </header>
 
-    <main>
-        <section class="hero">
-            <div class="container">
-                <div class="hero-content">
-                    <h1>Smart Crypto Recommendations</h1>
-                    <p>Powered by advanced machine learning algorithms to help you make informed investment decisions</p>
-                    <button id="getStartedBtn" class="btn-primary">Get Started</button>
-                </div>
-                <div class="hero-image">
-                    <img src="/api/placeholder/500/350" alt="Cryptocurrency visualization">
+        <section id="prediction-results" class="hidden">
+            <div class="section-header">
+                <h2>Prediction Results</h2>
+                <div class="controls">
+                    <button class="control-btn active" data-view="chart">Chart View</button>
+                    <button class="control-btn" data-view="table">Table View</button>
+                    <button class="export-btn"><i class="fas fa-download"></i> Export</button>
                 </div>
             </div>
-        </section>
 
-        <section id="dashboard" class="dashboard">
-            <div class="container">
-                <h2>Market Overview</h2>
-                <div class="stats-container">
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-bitcoin-sign"></i></div>
-                        <div class="stat-content">
-                            <h3>Bitcoin</h3>
-                            <p class="stat-value" id="btcPrice">Loading...</p>
-                            <p class="stat-change positive" id="btcChange">Loading...</p>
+            <div class="results-container">
+                <div class="current-stats">
+                    <div class="coin-info">
+                        <img id="coin-icon" src="/api/placeholder/48/48" alt="Coin icon">
+                        <div>
+                            <h3 id="coin-name">Bitcoin (BTC)</h3>
+                            <span id="current-price">$--,---</span>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fab fa-ethereum"></i></div>
-                        <div class="stat-content">
-                            <h3>Ethereum</h3>
-                            <p class="stat-value" id="ethPrice">Loading...</p>
-                            <p class="stat-change positive" id="ethChange">Loading...</p>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-label">24h Change</span>
+                            <span class="stat-value" id="change-24h">--.--% <i class="fas fa-caret-down"></i></span>
                         </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-chart-pie"></i></div>
-                        <div class="stat-content">
-                            <h3>Market Cap</h3>
-                            <p class="stat-value" id="marketCap">Loading...</p>
-                            <p class="stat-change" id="marketCapChange">Loading...</p>
+                        <div class="stat-card">
+                            <span class="stat-label">7d Change</span>
+                            <span class="stat-value" id="change-7d">--.--% <i class="fas fa-caret-up"></i></span>
                         </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-globe"></i></div>
-                        <div class="stat-content">
-                            <h3>24h Volume</h3>
-                            <p class="stat-value" id="volume">Loading...</p>
-                            <p class="stat-change" id="volumeChange">Loading...</p>
+                        <div class="stat-card">
+                            <span class="stat-label">Market Cap</span>
+                            <span class="stat-value" id="market-cap">$--- B</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Volume (24h)</span>
+                            <span class="stat-value" id="volume">$--- B</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="chart-container">
                     <div class="chart-header">
-                        <h3>Price Trends</h3>
-                        <div class="chart-controls">
-                            <select id="timeframeSelect">
-                                <option value="1d">1 Day</option>
-                                <option value="7d" selected>7 Days</option>
-                                <option value="30d">30 Days</option>
-                                <option value="90d">90 Days</option>
-                            </select>
+                        <h3>Price Forecast</h3>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <span class="legend-color historical"></span>
+                                <span>Historical Data</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color prediction"></span>
+                                <span>Prediction (High Confidence)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color uncertainty"></span>
+                                <span>Uncertainty Range</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="chart" id="priceChart">
-                        <img src="/api/placeholder/800/400" alt="Price chart" class="placeholder-chart">
-                        <div class="chart-loading">Loading chart data...</div>
+                    <canvas id="prediction-chart"></canvas>
+                </div>
+
+                <div class="prediction-metrics">
+                    <div class="metric-card">
+                        <h4>Predicted High</h4>
+                        <span class="price up" id="predicted-high">$--,---</span>
+                        <span class="change up">+--.--%</span>
+                    </div>
+                    <div class="metric-card highlight">
+                        <h4>Predicted Target</h4>
+                        <span class="price" id="predicted-target">$--,---</span>
+                        <span class="change up">+--.--%</span>
+                        <span class="date" id="target-date">in -- days</span>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Predicted Low</h4>
+                        <span class="price down" id="predicted-low">$--,---</span>
+                        <span class="change down">--.--% worst case</span>
+                    </div>
+                </div>
+
+                <div class="model-info">
+                    <h4>Model Information</h4>
+                    <div class="model-details">
+                        <div class="model-detail">
+                            <span class="detail-label">Model Type</span>
+                            <span class="detail-value">Ensemble (LSTM + XGBoost)</span>
+                        </div>
+                        <div class="model-detail">
+                            <span class="detail-label">Confidence Score</span>
+                            <div class="confidence-meter">
+                                <div class="meter" style="width: 78%"></div>
+                            </div>
+                            <span>78%</span>
+                        </div>
+                        <div class="model-detail">
+                            <span class="detail-label">Factors Considered</span>
+                            <div class="factors">
+                                <span class="factor">Price Action</span>
+                                <span class="factor">Volume</span>
+                                <span class="factor">Market Sentiment</span>
+                                <span class="factor">On-chain Data</span>
+                                <span class="factor">Technical Indicators</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="indicator-analysis">
+                    <h4>Technical Indicator Analysis</h4>
+                    <div class="indicators-grid">
+                        <div class="indicator">
+                            <span class="indicator-name">RSI (14)</span>
+                            <div class="indicator-value">
+                                <span>63.5</span>
+                                <div class="indicator-bar" data-value="63.5"></div>
+                            </div>
+                            <span class="indicator-signal neutral">Neutral</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-name">MACD</span>
+                            <div class="indicator-value">
+                                <span>24.8</span>
+                                <div class="indicator-bar" data-value="75"></div>
+                            </div>
+                            <span class="indicator-signal bullish">Bullish</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-name">Stoch RSI</span>
+                            <div class="indicator-value">
+                                <span>87.2</span>
+                                <div class="indicator-bar" data-value="87.2"></div>
+                            </div>
+                            <span class="indicator-signal bullish">Bullish</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-name">Bollinger Bands</span>
+                            <div class="indicator-value">
+                                <span>Upper</span>
+                                <div class="indicator-bar" data-value="85"></div>
+                            </div>
+                            <span class="indicator-signal bearish">Overbought</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section id="recommendations" class="recommendations">
-            <div class="container">
-                <h2>ML-Powered Recommendations</h2>
-                <p class="section-desc">Our machine learning algorithms analyze market trends, sentiment, and historical data to provide personalized recommendations.</p>
-                
-                <div class="filter-bar">
-                    <div class="filter">
-                        <label for="riskTolerance">Risk Tolerance:</label>
-                        <select id="riskTolerance">
-                            <option value="low">Conservative</option>
-                            <option value="medium" selected>Moderate</option>
-                            <option value="high">Aggressive</option>
-                        </select>
+        <section id="features" class="features-section">
+            <h2>Advanced Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-brain"></i>
                     </div>
-                    <div class="filter">
-                        <label for="timeHorizon">Time Horizon:</label>
-                        <select id="timeHorizon">
-                            <option value="short">Short Term</option>
-                            <option value="medium" selected>Medium Term</option>
-                            <option value="long">Long Term</option>
-                        </select>
-                    </div>
-                    <button id="generateRecommendations" class="btn-secondary">Generate Recommendations</button>
+                    <h3>AI-Powered Predictions</h3>
+                    <p>Our ensemble of machine learning models analyzes historical data, sentiment, and market indicators to generate accurate price forecasts.</p>
                 </div>
-                
-                <div class="recommendations-container" id="recommendationsContainer">
-                    <div class="recommendation-loading">
-                        <div class="loading-spinner"></div>
-                        <p>Analyzing market data and generating recommendations...</p>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-line"></i>
                     </div>
+                    <h3>Advanced Visualizations</h3>
+                    <p>Interactive charts and graphs provide clear insights into predicted price movements, trends, and confidence intervals.</p>
                 </div>
-            </div>
-        </section>
-
-        <section id="analysis" class="analysis">
-            <div class="container">
-                <h2>Advanced Analysis</h2>
-                <div class="analysis-cards">
-                    <div class="analysis-card">
-                        <h3>Price Correlation</h3>
-                        <div class="analysis-chart" id="correlationChart">
-                            <img src="/api/placeholder/400/250" alt="Correlation heatmap" class="placeholder-chart">
-                        </div>
-                        <p>Visualize how different cryptocurrencies move in relation to each other.</p>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-bell"></i>
                     </div>
-                    <div class="analysis-card">
-                        <h3>Volatility Analysis</h3>
-                        <div class="analysis-chart" id="volatilityChart">
-                            <img src="/api/placeholder/400/250" alt="Volatility chart" class="placeholder-chart">
-                        </div>
-                        <p>Compare the price volatility of top cryptocurrencies.</p>
+                    <h3>Price Alerts</h3>
+                    <p>Set custom price alerts based on AI predictions to never miss an important market movement or opportunity.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-robot"></i>
                     </div>
-                    <div class="analysis-card">
-                        <h3>Market Sentiment</h3>
-                        <div class="analysis-chart" id="sentimentChart">
-                            <img src="/api/placeholder/400/250" alt="Sentiment analysis" class="placeholder-chart">
-                        </div>
-                        <p>Track market sentiment based on social media and news analysis.</p>
+                    <h3>Sentiment Analysis</h3>
+                    <p>Our algorithms constantly scan social media and news sources to gauge market sentiment and incorporate it into predictions.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-history"></i>
                     </div>
+                    <h3>Backtesting Tools</h3>
+                    <p>Verify the accuracy of our models by testing them against historical data and previous market conditions.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <h3>Risk Assessment</h3>
+                    <p>Get detailed volatility metrics and risk scores to better understand the potential downside of each investment.</p>
                 </div>
             </div>
         </section>
 
-        <section id="predict" class="predict">
-            <div class="container">
-                <h2>Predict Future Prices</h2>
-                <p class="section-desc">Use our machine learning models to predict cryptocurrency prices based on historical data.</p>
-                
-                <div class="predict-form">
-                    <div class="form-group">
-                        <label for="cryptoSelect">Select Cryptocurrency:</label>
-                        <select id="cryptoSelect">
-                            <option value="BTC">Bitcoin (BTC)</option>
-                            <option value="ETH">Ethereum (ETH)</option>
-                            <option value="BNB">Binance Coin (BNB)</option>
-                            <option value="XRP">Ripple (XRP)</option>
-                            <option value="ADA">Cardano (ADA)</option>
-                            <option value="SOL">Solana (SOL)</option>
-                            <option value="DOT">Polkadot (DOT)</option>
-                            <option value="DOGE">Dogecoin (DOGE)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="daysAhead">Prediction Timeframe:</label>
-                        <select id="daysAhead">
-                            <option value="7">7 Days</option>
-                            <option value="14">14 Days</option>
-                            <option value="30">30 Days</option>
-                            <option value="90">90 Days</option>
-                        </select>
-                    </div>
-                    <button id="predictBtn" class="btn-primary">Generate Prediction</button>
+        <section id="how-it-works" class="how-it-works">
+            <h2>How It Works</h2>
+            <div class="steps-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Data Collection</h3>
+                    <p>We aggregate historical price data, trading volumes, on-chain metrics, and social sentiment from multiple sources.</p>
                 </div>
-                
-                <div class="prediction-result" id="predictionResult">
-                    <div class="prediction-chart">
-                        <img src="/api/placeholder/800/400" alt="Price prediction chart" class="placeholder-chart">
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Feature Engineering</h3>
+                    <p>Our algorithms extract meaningful patterns and create technical indicators that help identify market trends.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Model Training</h3>
+                    <p>We train multiple machine learning models including LSTM networks, XGBoost, and ensemble methods on historical data.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Prediction Generation</h3>
+                    <p>The ensemble model generates price predictions with confidence intervals based on current market conditions.</p>
+                </div>
+            </div>
+            <div class="model-diagram">
+                <img src="/api/placeholder/800/400" alt="ML model architecture diagram">
+            </div>
+        </section>
+
+        <section id="testimonials" class="testimonials">
+            <h2>What Our Users Say</h2>
+            <div class="testimonial-carousel">
+                <div class="testimonial-card">
+                    <div class="testimonial-quote">
+                        <p>"The price predictions have been remarkably accurate for Bitcoin's movements. The confidence intervals give me a much clearer picture of potential risk."</p>
                     </div>
-                    <div class="prediction-metrics">
-                        <div class="metric">
-                            <h4>Predicted Price (7 days)</h4>
-                            <p id="predictedPrice">Select a cryptocurrency and generate prediction</p>
+                    <div class="testimonial-author">
+                        <img src="/api/placeholder/64/64" alt="User avatar">
+                        <div class="author-info">
+                            <h4>Alex Johnson</h4>
+                            <span>Crypto Trader</span>
                         </div>
-                        <div class="metric">
-                            <h4>Confidence Level</h4>
-                            <p id="confidenceLevel">-</p>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-quote">
+                        <p>"As a data scientist myself, I'm impressed with the model's transparency. Being able to see the factors considered in each prediction is invaluable."</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <img src="/api/placeholder/64/64" alt="User avatar">
+                        <div class="author-info">
+                            <h4>Sophia Chen</h4>
+                            <span>Data Analyst</span>
                         </div>
-                        <div class="metric">
-                            <h4>Potential Upside</h4>
-                            <p id="potentialUpside">-</p>
-                        </div>
-                        <div class="metric">
-                            <h4>Risk Assessment</h4>
-                            <p id="riskAssessment">-</p>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-quote">
+                        <p>"The sentiment analysis feature helped me avoid a major market downturn. This tool offers much more than just price predictions."</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <img src="/api/placeholder/64/64" alt="User avatar">
+                        <div class="author-info">
+                            <h4>Marcus Rivera</h4>
+                            <span>Investor</span>
                         </div>
                     </div>
                 </div>
             </div>
-        </section>
-    </main>
-
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-logo">
-                    <span class="logo-icon"><i class="fas fa-chart-line"></i></span>
-                    <h2>CryptoSense<span>ML</span></h2>
-                    <p>Intelligent cryptocurrency analysis and recommendations powered by machine learning.</p>
+            <div class="carousel-controls">
+                <button class="carousel-control" id="prev-testimonial"><i class="fas fa-chevron-left"></i></button>
+                <div class="carousel-indicators">
+                    <span class="indicator active"></span>
+                    <span class="indicator"></span>
+                    <span class="indicator"></span>
                 </div>
-                <div class="footer-links">
-                    <h3>Quick Links</h3>
+                <button class="carousel-control" id="next-testimonial"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </section>
+
+        <section id="newsletter" class="newsletter">
+            <div class="newsletter-content">
+                <h2>Get Advanced Predictions</h2>
+                <p>Subscribe to receive weekly crypto market analysis and predictions straight to your inbox.</p>
+                <form class="newsletter-form">
+                    <input type="email" placeholder="Your email address">
+                    <button type="submit">Subscribe</button>
+                </form>
+            </div>
+        </section>
+
+        <footer>
+            <div class="footer-container">
+                <div class="footer-column">
+                    <div class="footer-logo">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>CryptoOracle</h3>
+                    </div>
+                    <p>Advanced cryptocurrency price predictions powered by machine learning and data science.</p>
+                    <div class="social-links">
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-discord"></i></a>
+                        <a href="#"><i class="fab fa-github"></i></a>
+                        <a href="#"><i class="fab fa-telegram"></i></a>
+                    </div>
+                </div>
+                <div class="footer-column">
+                    <h4>Resources</h4>
                     <ul>
-                        <li><a href="#dashboard">Dashboard</a></li>
-                        <li><a href="#recommendations">Recommendations</a></li>
-                        <li><a href="#analysis">Analysis</a></li>
-                        <li><a href="#predict">Predict</a></li>
+                        <li><a href="#">API Documentation</a></li>
+                        <li><a href="#">Research Papers</a></li>
+                        <li><a href="#">Model Accuracy Reports</a></li>
+                        <li><a href="#">Tutorials</a></li>
                     </ul>
                 </div>
-                <div class="footer-links">
-                    <h3>Resources</h3>
+                <div class="footer-column">
+                    <h4>Company</h4>
                     <ul>
-                        <li><a href="#">Documentation</a></li>
-                        <li><a href="#">API</a></li>
-                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">About Us</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Press</a></li>
+                        <li><a href="#">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="#">Terms of Service</a></li>
                         <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Cookie Policy</a></li>
+                        <li><a href="#">Risk Disclaimer</a></li>
                     </ul>
-                </div>
-                <div class="footer-newsletter">
-                    <h3>Stay Updated</h3>
-                    <p>Subscribe to our newsletter for the latest crypto insights.</p>
-                    <form class="newsletter-form">
-                        <input type="email" placeholder="Your email address">
-                        <button type="submit" class="btn-secondary">Subscribe</button>
-                    </form>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2025 CryptoSenseML. All rights reserved.</p>
-                <div class="social-links">
-                    <a href="#"><i class="fab fa-twitter"></i></a>
-                    <a href="#"><i class="fab fa-discord"></i></a>
-                    <a href="#"><i class="fab fa-github"></i></a>
-                    <a href="#"><i class="fab fa-linkedin"></i></a>
-                </div>
+                <p>&copy; 2025 CryptoOracle. All rights reserved.</p>
+                <p class="disclaimer">Disclaimer: Cryptocurrency investments are subject to high market risk. CryptoOracle predictions are for informational purposes only and should not be considered financial advice.</p>
             </div>
-        </div>
-    </footer>
+        </footer>
+    </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
